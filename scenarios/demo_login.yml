@@ -1,0 +1,19 @@
+meta:
+  name: "Demo login happy path"
+  tags: ["demo", "login"]
+env:
+  baseUrl: "http://localhost:8000"
+  creds:
+    user: "admin"
+    pass: "password"
+flow:
+  - go: "/demo_login.html"
+  - see: { text: "Test Ortamı Girişi" }
+  - type:
+      into: "#username|input[name=username]|[placeholder='örn. admin']"
+      text: "$env.creds.user"
+  - type:
+      into: "#password|input[name=password]|[placeholder='••••••••']"
+      text: "$env.creds.pass"
+  - click: { "on": "#login-button|button[type=submit]|role=button[name='Giriş yap']" }
+  - see: { text: "Giriş başarılı" }

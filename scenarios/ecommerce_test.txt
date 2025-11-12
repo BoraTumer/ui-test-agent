@@ -1,0 +1,11 @@
+TechStore Shopping Test:
+
+1. Open demo_ecommerce.html page
+
+2. Type "MacBook" in the search input and click Search button
+
+3. Click Add to Cart button
+
+4. Click Cart button
+
+5. Click Proceed to Checkout button

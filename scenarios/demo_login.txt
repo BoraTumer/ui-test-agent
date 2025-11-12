@@ -1,0 +1,5 @@
+Test the demo login experience:
+- Open the local demo login page at http://localhost:8000/demo_login.html
+- Enter "admin" as the username and "password" as the password
+- Click the "Sign in" button
+- Submit the form and confirm the success message "Login successful!" appears.

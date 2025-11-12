@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ui-test-agent-adk"
+version = "0.1.0"
+description = "AI-powered Web UI Test Agent using Google ADK and Playwright"
+authors = [{ name = "Codex", email = "codex@example.com" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+ui-test-agent = "ui_test_agent.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

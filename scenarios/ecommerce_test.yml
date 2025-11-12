@@ -1,0 +1,113 @@
+meta:
+  name: TechStore E-Commerce Shopping Flow
+  description: Test complete shopping experience with search, filters, cart, and checkout
+  tags:
+    - e-commerce
+    - shopping-cart
+    - checkout
+
+env:
+  baseUrl: "http://localhost:8000"
+
+flow:
+  # 1. Navigate to page
+  - go: /demo_ecommerce.html
+  
+  # 2. Wait for page to load
+  - see:
+      text: "TechStore"
+      meaning: "Store name is visible"
+  
+  # 3. Search for MacBook
+  - type:
+      into: "[data-testid='search-input']|#search-input"
+      text: "MacBook"
+  
+  - click:
+      on: "[data-testid='search-button']|#search-btn"
+  
+  # 4. Verify search results
+  - see:
+      text: "MacBook Pro"
+      meaning: "MacBook product is displayed in results"
+  
+  # 5. Apply category filter
+  - click:
+      on: "[data-testid='category-filter']|#category-filter"
+  
+  - type:
+      into: "[data-testid='category-filter']|#category-filter"
+      text: "laptops"
+  
+  # 6. Apply price filter
+  - click:
+      on: "[data-testid='price-filter']|#price-filter"
+  
+  # 7. Add MacBook to cart
+  - click:
+      on: "[data-testid='add-to-cart-1']|button:has-text('Add to Cart')"
+  
+  # 8. Verify success message appears
+  - see:
+      meaning: "Product added notification appears"
+      text: "added to cart"
+  
+  # 9. Add Dell XPS to cart
+  - click:
+      on: "[data-testid='add-to-cart-4']"
+  
+  # 10. Open cart sidebar
+  - click:
+      on: "#view-cart-btn|button:has-text('Cart')"
+  
+  # 11. Verify cart has 2 items
+  - see:
+      text: "2"
+      meaning: "Cart badge shows 2 items"
+  
+  # 12. Verify MacBook is in cart
+  - see:
+      text: "MacBook Pro"
+      meaning: "MacBook appears in cart"
+  
+  # 13. Verify Dell XPS is in cart
+  - see:
+      text: "Dell XPS"
+      meaning: "Dell XPS appears in cart"
+  
+  # 14. Increase MacBook quantity (click + button)
+  - click:
+      on: "button:has-text('+')"
+  
+  # 15. Verify quantity updated
+  - see:
+      text: "3"
+      meaning: "Cart count increased to 3"
+  
+  # 16. Remove Dell XPS from cart
+  - click:
+      on: "[data-testid='remove-4']|button:has-text('Remove')"
+  
+  # 17. Verify cart count decreased
+  - see:
+      text: "2"
+      meaning: "Cart count is now 2 (2 MacBooks)"
+  
+  # 18. Verify total is correct (2 * $2499 = $4998)
+  - see:
+      text: "4998"
+      meaning: "Cart total shows correct amount"
+  
+  # 19. Proceed to checkout
+  - click:
+      on: "[data-testid='checkout-button']|#checkout-btn"
+  
+  # 20. Verify order success
+  - see:
+      text: "Order placed successfully"
+      meaning: "Checkout confirmation appears"
+  
+  # 21. Verify cart is empty
+  - see:
+      text: "0"
+      meaning: "Cart count is reset to 0"

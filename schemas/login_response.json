@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["token", "user"],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 8
+    },
+    "user": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      }
+    }
+  }
+}

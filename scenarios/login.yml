@@ -1,0 +1,9 @@
+meta:
+  name: "Google search smoke"
+  tags: ["smoke", "search"]
+env:
+  baseUrl: "https://www.google.com"
+flow:
+  - go: "/search?q=playwright+testing&hl=en"
+  - seeUrl: "search"
+  - see: { text: "Playwright" }

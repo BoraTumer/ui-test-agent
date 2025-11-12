@@ -1,0 +1,16 @@
+mode: function_tools
+baseUrl: "http://localhost:8000"
+headless: false
+slowMo: 0
+timeouts:
+  default: 8000
+  url: 15000
+  api: 20000
+retry:
+  step: 1
+  scenario: 0
+recordVideo: true
+collectHAR: true
+allowedHosts:
+  - "localhost"
+artifactsDir: "artifacts"

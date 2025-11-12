@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.playwright/
+*.egg-info/
+
+# Artifacts - test outputs
+artifacts/*.json
+artifacts/*.yml
+artifacts/*.md
+artifacts/*.html
+artifacts/*.har
+artifacts/*.log
+artifacts/*.png
+artifacts/videos/*.mp4
+artifacts/videos/*.webm
+!artifacts/.gitkeep
+!artifacts/videos/.gitkeep
