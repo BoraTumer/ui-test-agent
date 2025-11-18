@@ -342,11 +342,11 @@ graph TD
     ACTION --> SEE[see]
     ACTION --> DONE[done]
     
-    GO --> NAV[page.goto(url)]
-    TYPE --> FILL[locator.fill(value)]
-    CLICK --> CLICKACT[locator.click()<br/>+ wait 800ms]
-    SELECT --> SELECTACT[select_option(label)<br/>fallback to value]
-    SEE --> VERIFY[wait_for(attached)<br/>+ wait_for(visible)]
+    GO --> NAV["page.goto(url)"]
+    TYPE --> FILL["locator.fill(value)"]
+    CLICK --> CLICKACT["locator.click() + wait 800ms"]
+    SELECT --> SELECTACT["select_option(label) fallback to value"]
+    SEE --> VERIFY["wait_for(attached) + wait_for(visible)"]
     DONE --> COMPLETE[Goal Achieved]
     
     style GO fill:#3498db,color:#fff
