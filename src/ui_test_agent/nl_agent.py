@@ -2,32 +2,27 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import os
 
 from .config import Settings
-from .dom_explorer import capture_dom_outline
 from .dom_indexer import DOMSemanticIndexer
 from .context_builder import ContextBuilder
 from .dsl import Scenario, ScenarioError, deep_merge
 
-# Suppress Google ADK SDK warnings about non-text parts
-# These are internal SDK details that we handle properly
-warnings.filterwarnings(
-    "ignore",
-    message=".*non-text parts in the response.*",
-    category=UserWarning
-)
+# Suppress all Google ADK/Genai warnings about non-text parts
+warnings.filterwarnings("ignore", category=UserWarning, module="google")
+warnings.filterwarnings("ignore", message=".*non-text parts.*")
 
-# Also suppress at logging level (Google SDK uses warnings module)
-logging.getLogger("google").setLevel(logging.ERROR)
-logging.getLogger("google.genai").setLevel(logging.ERROR)
-logging.getLogger("google.adk").setLevel(logging.ERROR)
+# Suppress Google SDK logging
+for logger_name in ["google", "google.genai", "google.adk", "google.api_core"]:
+    logging.getLogger(logger_name).setLevel(logging.ERROR)
+    logging.getLogger(logger_name).propagate = False
 
 try:  # pragma: no cover - optional dependency
     from google.adk import Agent  # type: ignore
@@ -165,25 +160,23 @@ Remember: Use selectors from the provided list, don't invent new ones!
         
         session = _run_sync(_create_session())
 
-        # HYBRID: Use ContextBuilder to create rich, structured context
-        # If dom_context provided, try to parse it into ElementInfo list
-        dom_index = []
-        if dom_context:
-            # dom_context is HTML snippets string from dom_explorer
-            # For now, pass it as-is. TODO: Parse into ElementInfo if needed
-            pass
+        # HYBRID: Build rich context with DOM elements
+        # dom_context is already formatted string from DOMSemanticIndexer
+        # Pass it directly as raw context since context_builder expects ElementInfo list
+        # TODO: Future enhancement - parse dom_context back to ElementInfo list
+        dom_index = []  # Empty for structured format
         
         # Build rich context with intent analysis + examples + best practices
         instructions = self.context_builder.build_context(
             user_instructions=prompt,
-            dom_index=dom_index,  # Empty for now, will be populated when we integrate dom_indexer
+            dom_index=dom_index,
             base_env=base_env,
             feedback=feedback
         )
         
-        # If we have raw HTML context, append it as backup
+        # Append formatted DOM context from indexer
         if dom_context:
-            instructions += f"\n\n---\n\n# Raw HTML Elements (Backup)\n\n{dom_context[:8000]}"
+            instructions += f"\n\n---\n\n{dom_context}"
         
         message = types.Content(role="user", parts=[types.Part(text=instructions)])
         transcript: List[TranscriptEntry] = []
@@ -289,39 +282,15 @@ Remember: Use selectors from the provided list, don't invent new ones!
             path = "/"
         flow.append({"go": path})
 
-        try:
-            dom_snapshot = json.loads(dom_context) if dom_context else []
-        except Exception:
-            dom_snapshot = []
-        selector_hints = _extract_selector_hints(dom_snapshot)
+        # Parse DOM context if available (future enhancement)
+        selector_hints = {}
 
         if "login" in prompt_lower:
             flow.append({"see": {"text": "login"}})
-            flow.append(
-                {
-                    "type": {
-                        "into": selector_hints.get("username") or "input[name=username]|#username",
-                        "text": creds.get("user", "user@example.com"),
-                    }
-                }
-            )
-            flow.append(
-                {
-                    "type": {
-                        "into": selector_hints.get("password") or "input[name=password]|#password",
-                        "text": creds.get("pass", "changeme"),
-                    }
-                }
-            )
-            flow.append({"click": {"on": selector_hints.get("submit") or "#login-button|button[type=submit]"}})
-            success_meaning = "the user sees that login succeeded"
-            success_literal = selector_hints.get("success_text")
-            if success_literal:
-                flow.append({"see": {"meaning": success_meaning, "text": success_literal}})
-            elif "success" in prompt_lower or (feedback and "success" in feedback.lower()):
-                flow.append({"see": {"meaning": success_meaning, "text": "Login successful"}})
-            else:
-                flow.append({"see": {"meaning": success_meaning, "text": "success"}})
+            flow.append({"type": {"into": "input[name=username]|#username", "text": creds.get("user", "user@example.com")}})
+            flow.append({"type": {"into": "input[name=password]|#password", "text": creds.get("pass", "changeme")}})
+            flow.append({"click": {"on": "#login-button|button[type=submit]"}})
+            flow.append({"see": {"text": "Login successful", "meaning": "the user sees that login succeeded"}})
         else:
             flow.append({"see": {"text": "welcome"}})
 
@@ -599,42 +568,6 @@ def _build_text_fallback(text: str, dom_hints: Optional[Dict[str, str]] = None) 
             unique_candidates.append(c)
     
     return "|".join(unique_candidates)
-
-
-def _extract_selector_hints(dom_snapshot: List[Dict[str, Any]]) -> Dict[str, str]:
-    hints: Dict[str, str] = {}
-    for node in dom_snapshot:
-        text = (node.get("text") or "").lower()
-        tag = node.get("tag") or ""
-        identifier = node.get("id")
-        name = node.get("name")
-        data_testid = node.get("dataTestid")
-
-        def build_selector():
-            if data_testid:
-                return f"[data-testid=\"{data_testid}\"]"
-            if identifier:
-                return f"#{identifier}"
-            if name:
-                return f"[name=\"{name}\"]"
-            if node.get("role"):
-                return f"role={node['role']}"
-            if text:
-                return f"{tag}:has-text(\"{node.get('text').strip()}\")"
-            return None
-
-        selector = build_selector()
-        if not selector:
-            continue
-        if "username" in (identifier or "") or "username" in (name or ""):
-            hints.setdefault("username", selector)
-        elif "password" in (identifier or "") or "password" in (name or ""):
-            hints.setdefault("password", selector)
-        elif tag == "button" and ("login" in text or "sign" in text or "submit" in text):
-            hints.setdefault("submit", selector)
-        elif "success" in text or "successful" in text:
-            hints.setdefault("success_text", node.get("text"))
-    return hints
 
 
 def _run_sync(coro):

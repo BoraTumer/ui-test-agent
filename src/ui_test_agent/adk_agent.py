@@ -74,6 +74,7 @@ def _run_with_adk(
         " plan the minimal set of tool calls to execute every step in order."
         " Honour selector order, stay on the provided baseUrl host, and stop immediately"
         " on failure. Respond only with tool calls."
+        " If selectors are missing after navigation, use get_page_elements() to query the current page."
     )
     tools = [
         adk_tools.browser_go,
@@ -83,6 +84,7 @@ def _run_with_adk(
         adk_tools.browser_see_url,
         adk_tools.browser_wait_api,
         adk_tools.browser_a11y,
+        adk_tools.get_page_elements,
     ]
 
     try:

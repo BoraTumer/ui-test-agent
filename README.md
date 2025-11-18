@@ -119,18 +119,19 @@ flow:
 
 ### Core Components
 
-\`\`\`
+```
 src/ui_test_agent/
-├── nl_agent.py          # Natural language → test scenario (Google ADK)
-├── adk_agent.py         # ADK multi-agent orchestration
+├── nl_agent.py          # Natural language → test scenario (hybrid approach)
+├── dom_indexer.py       # Smart DOM element extraction (Stage 1)
+├── context_builder.py   # Rich context builder (Stage 2)
+├── adk_agent.py         # ADK function-calling orchestration
 ├── computer_use_agent.py # Vision-based automation
-├── dom_explorer.py      # HTML element extraction
 ├── runner.py            # Test execution engine
 ├── locators.py          # Self-healing selector resolution
 ├── semantic_eval.py     # AI-powered assertions
 ├── reporting.py         # HTML/JSON report generation
 └── cli.py              # Command-line interface
-\`\`\`
+```
 
 ### How It Works
 

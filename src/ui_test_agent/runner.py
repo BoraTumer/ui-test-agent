@@ -170,13 +170,19 @@ class ScenarioRunner:
         if parsed.hostname not in self.settings.allowed_hosts:
             raise RuntimeError(f"Blocked navigation to host {parsed.hostname}")
         self.page.goto(target, wait_until="domcontentloaded", timeout=self.settings.timeouts.default)
+        # Wait for page to be fully interactive
+        self.page.wait_for_load_state("networkidle", timeout=5000)
 
     def _type(self, selector_str: str, text: str) -> None:
         locator = self._resolve_locator(selector_str)
+        # Wait for element to be visible and enabled
+        locator.wait_for(state="visible", timeout=self.settings.timeouts.default)
         locator.fill(text, timeout=self.settings.timeouts.default)
 
     def _click(self, selector_str: str) -> None:
         locator = self._resolve_locator(selector_str)
+        # Wait for element to be visible and enabled
+        locator.wait_for(state="visible", timeout=self.settings.timeouts.default)
         locator.click(timeout=self.settings.timeouts.default)
 
     def _resolve_locator(self, selector_str: str) -> Locator:

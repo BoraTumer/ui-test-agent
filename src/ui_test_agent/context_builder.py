@@ -201,9 +201,11 @@ class ContextBuilder:
         """
         instructions_lower = instructions.lower()
         
-        # Login example
+        # Login example - ENHANCED with common patterns
         if any(word in instructions_lower for word in ["login", "sign in", "authenticate"]):
             return """# Example: Login Flow
+
+**IMPORTANT**: Use EXACT selectors from page, don't guess!
 
 ```json
 {
@@ -215,14 +217,20 @@ class ContextBuilder:
     "baseUrl": "http://localhost:8000"
   },
   "flow": [
-    {"action": "go", "url": "/login.html"},
+    {"action": "go", "url": "/demo_login.html"},
     {"action": "type", "selector": "#username", "value": "admin"},
-    {"action": "type", "selector": "#password", "value": "secret"},
-    {"action": "click", "selector": "#login-btn"},
-    {"action": "see", "text": "Welcome", "meaning": "Login successful"}
+    {"action": "type", "selector": "#password", "value": "password"},
+    {"action": "click", "selector": "#login-button"},
+    {"action": "see", "text": "Login successful!", "meaning": "Login successful"}
   ]
 }
 ```
+
+**Common Login Patterns**:
+- Username field: Usually `#username`, `#email`, or `[name="username"]`
+- Password field: Usually `#password` or `[name="password"]`
+- Submit button: Check exact ID (e.g., `#login-button` NOT `#login-btn`)
+- Use `text=` for buttons if ID not available (e.g., `text=Sign in`)
 """
         
         # Search example
@@ -250,26 +258,30 @@ class ContextBuilder:
         
         # E-commerce example
         elif any(word in instructions_lower for word in ["cart", "checkout", "purchase"]):
-            return """# Example: E-commerce Checkout
+            return """# Example: E-commerce Checkout (Multi-Page)
 
 ```json
 {
   "meta": {
-    "name": "Add to Cart",
-    "description": "Add product and checkout"
+    "name": "Add to Cart and Checkout",
+    "description": "Add product and proceed to checkout"
   },
   "env": {
     "baseUrl": "http://localhost:8000"
   },
   "flow": [
     {"action": "go", "url": "/products.html"},
-    {"action": "click", "selector": "text=Add to Cart"},
-    {"action": "click", "selector": "#cart-btn"},
-    {"action": "see", "text": "Cart", "meaning": "Cart opened"},
-    {"action": "click", "selector": "#checkout-btn"}
+    {"action": "click", "selector": "[data-testid='add-to-cart-1']|text=Add to Cart"},
+    {"action": "see", "text": "Added to cart", "meaning": "Product added confirmation"},
+    {"action": "click", "selector": "#view-cart-btn|#cart|text=Cart"},
+    {"action": "see", "text": "Shopping Cart", "meaning": "Cart page loaded"},
+    {"action": "click", "selector": "#checkout-btn|button:has-text('Checkout')|text=Proceed to Checkout"},
+    {"action": "see", "text": "Checkout", "meaning": "Checkout page loaded"}
   ]
 }
 ```
+
+**Note**: This example uses multiple selector fallbacks for elements that might appear on different pages.
 """
         
         return ""
@@ -293,6 +305,20 @@ class ContextBuilder:
 - ❌ **DON'T guess** selectors - use provided ones
 - ❌ **DON'T add** extra verification steps unless requested
 - ❌ **DON'T use** placeholder attributes as selectors (unreliable)
+
+## Multi-Page Scenarios
+**IMPORTANT**: The "Available Page Elements" section shows elements from the INITIAL page only.
+If your test navigates to multiple pages (e.g., login → dashboard → checkout):
+
+1. **Use common patterns** for elements on other pages:
+   - Checkout buttons: `#checkout-btn`, `#checkout`, `button:has-text("Checkout")`
+   - Submit buttons: `#submit-btn`, `button[type=submit]`, `text=Submit`
+   - Back/Continue: `#back-btn`, `#continue-btn`, `text=Continue`
+   - Cart: `#cart`, `#view-cart`, `text=Cart`
+
+2. **Use multiple selector fallbacks**: `#checkout|button:has-text("Checkout")|[data-testid="checkout"]`
+
+3. **Add verification** after navigation to ensure page loaded: `{"action": "see", "text": "expected page title"}`
 
 ## Action Types
 - `go` - Navigate to URL

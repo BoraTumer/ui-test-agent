@@ -38,8 +38,10 @@ cp .env.example .env
 
 ```
 src/ui_test_agent/
-├── nl_agent.py          # ADK-based natural language processing
-├── dom_explorer.py      # HTML element extraction
+├── nl_agent.py          # Natural language orchestrator (hybrid approach)
+├── dom_indexer.py       # Smart DOM element extraction (Stage 1)
+├── context_builder.py   # Rich context builder (Stage 2)
+├── adk_agent.py         # Function-calling mode
 ├── runner.py            # Test execution engine
 ├── locators.py          # Selector resolution
 ├── semantic_eval.py     # AI-powered assertions

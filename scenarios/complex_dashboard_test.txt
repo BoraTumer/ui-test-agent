@@ -1,0 +1,16 @@
+Complex Dashboard Testing:
+
+1. Open demo_complex_dashboard.html page
+2. Search for "Mobile" in the search input
+3. Apply filters button
+4. Click "New Project" button to open the modal
+5. Fill project form:
+   - Project Name: "AI Integration Project"
+   - Department: Engineering
+   - Priority: High
+   - Owner: "John Smith"
+   - Due Date: 2025-12-31
+   - Description: "Integrate AI features into the platform"
+6. Click "Save Project" button
+7. Verify notification appears with "Project created successfully!"
+

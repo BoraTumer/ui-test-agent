@@ -15,13 +15,10 @@ Extracts and prioritizes selectors:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from playwright.sync_api import Page, ElementHandle
-except ImportError:  # pragma: no cover
-    Page = None  # type: ignore
-    ElementHandle = None  # type: ignore
 
 
 @dataclass
@@ -205,6 +202,20 @@ class DOMSemanticIndexer:
             if val and val.strip():
                 attrs[attr] = val.strip()[:50]  # Limit length
         
+        # For select elements, extract available options
+        try:
+            tag = el.evaluate("el => el.tagName.toLowerCase()")
+            if tag == "select":
+                options = el.evaluate("""el => {
+                    return Array.from(el.options)
+                        .map(opt => opt.text.trim())
+                        .filter(text => text.length > 0);
+                }""")
+                if options:
+                    attrs["options"] = ", ".join(options[:10])  # Limit to first 10 options
+        except Exception:
+            pass
+        
         return attrs
     
     def to_context_string(self) -> str:
@@ -215,10 +226,10 @@ class DOMSemanticIndexer:
         Example output:
             # Page Elements (Priority-Sorted)
             
-            🔘 #search-btn → "Search"
-            📝 #search-input [placeholder: Search for products...]
-            🔗 text=Cart (2) → "Cart (2)"
-            🔘 [data-testid="checkout-btn"] → "Proceed to Checkout"
+            #search-btn → "Search"
+            #search-input [placeholder: Search for products...]
+            text=Cart (2) → "Cart (2)"
+            [data-testid="checkout-btn"] → "Proceed to Checkout"
         """
         if not self.elements:
             return "# No interactive elements found on page"
@@ -226,20 +237,8 @@ class DOMSemanticIndexer:
         lines = ["# Page Elements (Priority-Sorted)", ""]
         
         for el in self.elements[:100]:  # Top 100 elements
-            # Role emoji
-            role_emoji = {
-                "button": "🔘",
-                "input:text": "📝",
-                "input:password": "🔒",
-                "input:email": "📧",
-                "input:search": "🔍",
-                "link": "🔗",
-                "dropdown": "📋",
-                "textarea": "📄",
-            }.get(el.role, "▪️")
-            
-            # Build line: emoji selector [text] [attributes]
-            line_parts = [role_emoji, el.selector]
+            # Build line: selector [text] [attributes]
+            line_parts = [el.selector]
             
             if el.text:
                 line_parts.append(f'→ "{el.text}"')
