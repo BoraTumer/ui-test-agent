@@ -1,24 +1,23 @@
-# 🤖 UI Test Agent ADK
+# 🤖 UI Test Agent
 
-AI-powered UI testing framework combining **Google ADK (Agent Development Kit)** with **Playwright** for intelligent, self-healing browser automation.
+Natural Language UI testing framework powered by **Google Gemini** and **Playwright** for intelligent browser automation.
 
 ## ✨ Features
 
-- **🎯 Natural Language Testing**: Write tests in plain English, AI generates selectors
-- **🔄 Self-Healing Selectors**: Automatically adapts to DOM changes using HTML context
-- **🤖 Multi-Mode Execution**:
-  - **Function Tools**: Deterministic YAML-based scenarios
-  - **Natural Language**: AI-generated test plans from plain text
-  - **Computer Use**: Vision-based UI automation (experimental)
-- **📊 Rich Reporting**: HTML/JSON reports with screenshots and videos
-- **🔍 Smart DOM Analysis**: Extracts selectors from actual HTML structure
-- **⚡ Adaptive Timeouts**: Dynamic wait times based on execution history
+- **🎯 Natural Language Testing**: Write tests in plain English, AI decides actions
+- **🔄 Self-Healing**: Automatically adapts to DOM changes using semantic understanding
+- **🤖 Dual Execution Modes**:
+  - **Static NL**: Generate complete scenario upfront, then execute
+  - **Dynamic NL**: Step-by-step decision making with live DOM observation
+- **📊 Rich Reporting**: HTML/JSON reports with screenshots and execution details
+- **🔍 Smart DOM Indexing**: Extracts interactive elements from actual HTML
+- **⚡ Context-Aware**: Uses current page state for accurate selector resolution
 
 ## 🚀 Quick Start
 
 ### Installation
 
-\`\`\`bash
+```bash
 # Clone repository
 git clone <repo-url>
 cd ui-test-agent-adk
@@ -37,44 +36,34 @@ python -m playwright install --with-deps chromium
 # Setup API key
 cp .env.example .env
 # Edit .env and add your GEMINI_API_KEY
-\`\`\`
+```
 
 ### Basic Usage
 
-**1. Function Tools Mode (Deterministic YAML)**
+**1. Static Natural Language Mode**
 
-\`\`\`bash
+```bash
 python -m ui_test_agent run \
-  --scenario scenarios/demo_login.yml \
-  --config config.yaml \
-  --headful
-\`\`\`
-
-**2. Natural Language Mode (AI-Generated)**
-
-\`\`\`bash
-python -m ui_test_agent run \
-  --config config.yaml \
   --nl-file scenarios/demo_login.txt \
-  --headful \
-  --slowmo 500
-\`\`\`
-
-**3. Computer Use Mode (Vision-Based)**
-
-\`\`\`bash
-python -m ui_test_agent run \
-  --scenario scenarios/demo_login.yml \
   --config config.yaml \
-  --mode computer_use \
   --headful
-\`\`\`
+```
+
+**2. Dynamic Natural Language Mode**
+
+```bash
+python -m ui_test_agent run \
+  --nl "Open http://localhost:8000/demo_login.html and login with username 'admin' and password 'password'" \
+  --config config.yaml \
+  --dynamic \
+  --headful
+```
 
 ## 📝 Writing Tests
 
 ### Natural Language Format
 
-Create a simple \`.txt\` file with plain instructions:
+Create a simple `.txt` file with plain instructions:
 
 \`\`\`text
 Login Test:
@@ -88,32 +77,9 @@ Login Test:
 
 The AI will:
 - Analyze the page HTML
-- Extract correct selectors (#id, data-testid, text=)
+- Extract correct selectors from live DOM
 - Generate executable test steps
-- Adapt if selectors change
-
-### YAML Format (Deterministic)
-
-\`\`\`yaml
-meta:
-  name: Login Test
-  description: Tests user login flow
-env:
-  baseUrl: http://localhost:8000
-flow:
-  - action: go
-    url: /demo_login.html
-  - action: type
-    selector: "#username"
-    value: admin
-  - action: type
-    selector: "#password"
-    value: password
-  - action: click
-    selector: text=Login
-  - action: see
-    text: Success
-\`\`\`
+- Adapt to page changes in real-time
 
 ## 🏗️ Architecture
 
@@ -123,41 +89,30 @@ flow:
 
 ```
 src/ui_test_agent/
-├── nl_agent.py          # Natural language → test scenario (hybrid approach)
-├── dom_indexer.py       # Smart DOM element extraction (Stage 1)
-├── context_builder.py   # Rich context builder (Stage 2)
-├── adk_agent.py         # ADK function-calling orchestration
-├── computer_use_agent.py # Vision-based automation
-├── runner.py            # Test execution engine
-├── locators.py          # Self-healing selector resolution
+├── nl_agent.py          # Static NL: Generate scenario upfront
+├── dynamic_nl_agent.py  # Dynamic NL: Step-by-step decisions
+├── dom_indexer.py       # Smart DOM element extraction
+├── context_builder.py   # Rich context for AI prompts
+├── runner.py            # Scenario execution engine
 ├── semantic_eval.py     # AI-powered assertions
 ├── reporting.py         # HTML/JSON report generation
-└── cli.py              # Command-line interface
+└── cli.py               # Command-line interface
 ```
 
 ### How It Works
 
-1. **HTML Extraction**: Captures interactive elements as HTML snippets
-   \`\`\`html
-   <input id="search-input" placeholder="Search..." />
-   <button id="search-btn">Search</button>
-   \`\`\`
+**Static Mode:**
+1. **DOM Extraction**: Captures interactive elements with selectors
+2. **AI Planning**: Gemini generates complete scenario from context
+3. **Execution**: Runner executes all steps sequentially
+4. **Reporting**: Generates HTML/JSON reports
 
-2. **AI Planning**: Google Gemini analyzes HTML and generates selectors
-   \`\`\`json
-   {
-     "action": "type",
-     "selector": "#search-input",
-     "value": "MacBook"
-   }
-   \`\`\`
-
-3. **Smart Execution**: Playwright executes with fallback strategies
-   - Try exact selector
-   - Try alternative selectors (name, placeholder, text)
-   - Use semantic matching as last resort
-
-4. **Feedback Loop**: If step fails, AI regenerates plan with error context
+**Dynamic Mode:**
+1. **Goal Input**: User provides high-level goal
+2. **Observe**: Agent extracts current page DOM
+3. **Decide**: AI determines next single action
+4. **Execute**: Performs action, observes result
+5. **Repeat**: Until goal achieved or max steps reached
 
 ## 🎯 Selector Strategy
 
@@ -195,85 +150,95 @@ artifacts/
 
 ## ⚙️ Configuration
 
-\`config.yaml\`:
+`config.yaml`:
 
-\`\`\`yaml
-settings:
-  base_url: http://localhost:8000
-  headless: false
-  slowmo_ms: 500
-  timeout_ms: 8000
-  viewport_width: 1280
-  viewport_height: 720
-  video: true
-  screenshots_on_failure: true
-
-gemini:
-  model: gemini-2.5-flash
-  temperature: 0.7
-\`\`\`
+```yaml
+baseUrl: http://localhost:8000
+headless: false
+slowMo: 500
+timeouts:
+  default: 8000
+  url: 15000
+  api: 20000
+retry:
+  step: 1
+  scenario: 0
+recordVideo: false
+collectHAR: false
+allowedHosts:
+  - localhost
+  - 127.0.0.1
+artifactsDir: artifacts
+```
 
 ## 🧪 Demo Pages
 
-Two demo pages included for testing:
+Three demo pages included for testing:
 
-**\`demo_login.html\`** - Simple login form
+**`demo_login.html`** - Simple login form
 - Username/password inputs
 - Submit button
-- Success message
+- Success/error messages
 
-**\`demo_ecommerce.html\`** - E-commerce store (TechStore)
-- Search functionality
-- Product catalog (9 items)
+**`demo_ecommerce.html`** - E-commerce store
+- Product catalog with filters
 - Shopping cart
-- Filters (category, price, sort)
-- Checkout flow
+- Search functionality
+
+**`demo_complex_dashboard.html`** - Multi-section dashboard
+- Analytics charts
+- Data tables
+- Form submissions
 
 Start local server:
-\`\`\`bash
+```bash
 python -m http.server 8000
 # Visit: http://localhost:8000/demo_login.html
-\`\`\`
+```
 
-## 🔧 Advanced Usage
+## 🔧 CLI Options
 
-### Custom Scenarios
+```bash
+python -m ui_test_agent run [OPTIONS]
 
-\`\`\`bash
-# With specific timeout
-python -m ui_test_agent run \
-  --scenario scenarios/custom.yml \
-  --timeout 15000
+Options:
+  --config PATH       Config file path (default: config.yaml)
+  --nl TEXT          Inline natural language instructions
+  --nl-file PATH     Natural language instructions from file
+  --dynamic          Use dynamic mode (step-by-step)
+  --headful          Launch browser with UI
+  --slowmo MS        Slow motion in milliseconds
+```
 
-# Headless with video
-python -m ui_test_agent run \
-  --scenario scenarios/custom.yml \
-  --video \
-  --no-headful
-\`\`\`
+### Examples
+
+```bash
+# Static mode with file
+python -m ui_test_agent run --nl-file scenarios/demo_login.txt
+
+# Dynamic mode with inline goal
+python -m ui_test_agent run --dynamic --nl "Search for MacBook and add to cart"
+
+# With debugging (slow motion + headful)
+python -m ui_test_agent run --nl-file scenarios/ecommerce_test.txt --headful --slowmo 500
+```
 
 ### Environment Variables
 
-\`\`\`bash
+```bash
 export GEMINI_API_KEY="your-api-key"
 export GEMINI_MODEL="gemini-2.5-flash"  # or gemini-1.5-pro
-export DEBUG=1  # Enable debug logging
-\`\`\`
+```
 
 ## 📚 API Key Setup
 
 1. Get API key: https://aistudio.google.com/apikey
-2. Copy \`.env.example\` to \`.env\`
-3. Add key: \`GEMINI_API_KEY=your-key-here\`
+2. Copy `.env.example` to `.env`
+3. Add key: `GEMINI_API_KEY=your-key-here`
 
 ## 🤝 Contributing
 
-Contributions welcome! Areas for improvement:
-- Add more selector fallback strategies
-- Improve feedback loop quality
-- Support additional browsers (Firefox, WebKit)
-- Enhanced semantic assertions
-- Multi-language support
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
@@ -281,10 +246,10 @@ MIT License
 
 ## 🙏 Acknowledgments
 
-- Google ADK (Agent Development Kit)
-- Playwright
 - Google Gemini AI
+- Playwright
+- Python ecosystem
 
 ---
 
-**Made with ❤️ for smarter UI testing**
+**Made with ❤️ for intelligent UI testing**

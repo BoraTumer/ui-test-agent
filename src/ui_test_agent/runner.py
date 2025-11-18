@@ -1,20 +1,71 @@
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Locator, Page
 
 from .config import Settings
-from .dsl import Scenario
-from .locators import locator_candidates, parse_role
+from .nl_agent import Scenario
 from .oracle import OracleError, run_axe, see_text, see_url, wait_api
 from .semantic_eval import semantic_match
 from .reporting import RunReport, StepResult, render_html, save_report
+
+
+# ===== Locator Resolution Utilities (previously in locators.py) =====
+
+ROLE_PATTERN = re.compile(r"role=([a-zA-Z0-9_-]+)(\[(.+)\])?")
+ATTR_PATTERN = re.compile(r"([a-zA-Z0-9_-]+)=['\"]?([^'\"]+)['\"]?")
+
+
+def locator_candidates(raw: str) -> List[str]:
+    """
+    Split selector string by pipe (|) and return candidates sorted by priority.
+    Priority order: data-testid > role= > # > [name > [placeholder > text= > generic
+    """
+    parts = [part.strip() for part in raw.split("|") if part.strip()]
+    return sorted(parts, key=_score_selector)
+
+
+def _score_selector(selector: str) -> Tuple[int, int]:
+    """Assign priority score to selector. Lower score = higher priority."""
+    checks = [
+        ("data-testid", 0),
+        ("role=", 1),
+        ("#", 2),
+        ("[name", 3),
+        ("[placeholder", 4),
+        ("text=", 5),
+    ]
+    clean = selector.strip()
+    for needle, score in checks:
+        if needle == "#" and clean.startswith("#"):
+            return (score, len(clean))
+        if needle == "role=" and clean.startswith("role="):
+            return (score, len(clean))
+        if needle in clean:
+            return (score, len(clean))
+    if "nth-child" in clean:
+        return (9, len(clean))
+    return (6, len(clean))
+
+
+def parse_role(raw: str) -> Tuple[str, Dict[str, str]]:
+    """Parse Playwright role selector: role=button[name="Submit"]"""
+    match = ROLE_PATTERN.fullmatch(raw.strip())
+    if not match:
+        raise ValueError(f"Invalid role selector: {raw}")
+    role = match.group(1)
+    attrs_str = match.group(3) or ""
+    attrs: Dict[str, str] = {}
+    for attr_match in ATTR_PATTERN.finditer(attrs_str):
+        attrs[attr_match.group(1)] = attr_match.group(2)
+    return role, attrs
 
 
 @dataclass

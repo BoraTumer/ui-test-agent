@@ -2,14 +2,14 @@
 
 ## Overview
 
-UI Test Agent ADK is a hybrid AI-powered test automation framework combining multiple execution modes for maximum flexibility and reliability.
+UI Test Agent is a Natural Language-first test automation framework powered by Google Gemini AI and Playwright, offering two distinct execution modes for flexible test automation.
 
 ## Table of Contents
 - [System Architecture](#system-architecture)
 - [Execution Modes](#execution-modes)
 - [Data Flow](#data-flow)
 - [Component Diagrams](#component-diagrams)
-- [Sequence Diagrams](#sequence-diagrams)
+- [Core Components](#core-components)
 
 ---
 
@@ -24,15 +24,12 @@ graph TB
     subgraph "Execution Modes"
         STATIC[Static NL Agent<br/>nl_agent.py]
         DYNAMIC[Dynamic NL Agent<br/>dynamic_nl_agent.py]
-        FUNCTION[Function Tools<br/>adk_agent.py]
-        COMPUTER[Computer Use<br/>computer_use_agent.py]
     end
     
     subgraph "Core Components"
         DOM[DOM Indexer<br/>dom_indexer.py]
         CONTEXT[Context Builder<br/>context_builder.py]
         RUNNER[Scenario Runner<br/>runner.py]
-        LOCATOR[Locator Engine<br/>locators.py]
     end
     
     subgraph "External Services"
@@ -40,24 +37,20 @@ graph TB
         PLAYWRIGHT[Playwright Browser]
     end
     
+    CLI -->|--nl/--nl-file| STATIC
     CLI -->|--dynamic| DYNAMIC
-    CLI -->|--nl-file| STATIC
-    CLI -->|--scenario| FUNCTION
-    CLI -->|--mode computer_use| COMPUTER
     
     STATIC --> CONTEXT
     STATIC --> DOM
     STATIC --> GEMINI
+    STATIC --> RUNNER
     
     DYNAMIC --> DOM
     DYNAMIC --> GEMINI
     DYNAMIC --> PLAYWRIGHT
     
-    FUNCTION --> RUNNER
-    COMPUTER --> PLAYWRIGHT
-    
     CONTEXT --> DOM
-    RUNNER --> LOCATOR
+    RUNNER --> PLAYWRIGHT
     RUNNER --> PLAYWRIGHT
     LOCATOR --> PLAYWRIGHT
     
@@ -71,7 +64,7 @@ graph TB
 
 ## Execution Modes
 
-### 1. Dynamic NL Agent (NEW) 🚀
+### 1. Dynamic NL Agent 🚀
 
 **Step-by-step decision making with real-time DOM observation**
 
@@ -94,11 +87,18 @@ graph LR
 - ✅ No need to predict entire flow upfront
 - ✅ Handles dynamic UIs (modals, notifications)
 - ✅ Self-correcting on element changes
+- ✅ True autonomous agent behavior
 
 **Disadvantages:**
 - ⚠️ Higher API cost (1 call per step)
 - ⚠️ Slower execution
 - ⚠️ Requires good prompt engineering
+
+**Use Cases:**
+- Complex multi-page flows
+- Dynamic content (SPAs, AJAX)
+- Exploratory testing
+- When exact flow is unknown
 
 ---
 
@@ -124,28 +124,17 @@ graph LR
 - ✅ Low API cost (1-2 calls total)
 - ✅ Fast execution
 - ✅ Predictable flow
+- ✅ Easy to debug (inspect generated plan)
 
 **Disadvantages:**
 - ⚠️ Can't adapt mid-execution
-- ⚠️ Needs retry logic for failures
+- ⚠️ Needs complete context upfront
 
----
-
-### 3. Function Tools Mode
-
-**Deterministic YAML-based execution**
-
-```mermaid
-graph LR
-    YAML[YAML Scenario] --> PARSE[Parse DSL]
-    PARSE --> ADK[Google ADK<br/>Optional]
-    PARSE --> RUNNER[Direct Runner]
-    ADK --> RUNNER
-    RUNNER --> PW[Playwright Actions]
-    
-    style YAML fill:#e74c3c,color:#fff
-    style RUNNER fill:#2ecc71,color:#fff
-```
+**Use Cases:**
+- Stable, predictable flows
+- Regression testing
+- CI/CD pipelines
+- Cost-sensitive scenarios
 
 ---
 
@@ -162,7 +151,7 @@ sequenceDiagram
     participant Gemini
     participant Playwright
     
-    User->>CLI: --dynamic --nl-file goal.txt
+    User->>CLI: --dynamic --nl "goal"
     CLI->>DynamicAgent: execute_goal(goal)
     
     loop Until goal achieved (max 20 steps)
@@ -435,60 +424,38 @@ graph TB
 
 ## Comparison Matrix
 
-```mermaid
-graph TB
-    subgraph "Feature Comparison"
-        direction TB
-        A[Dynamic NL]
-        B[Static NL]
-        C[Function Tools]
-        D[Computer Use]
-    end
-    
-    subgraph "Metrics"
-        direction TB
-        M1[API Calls: High/Low/None/High]
-        M2[Speed: Medium/Fast/Fastest/Slow]
-        M3[Adaptability: High/Low/None/High]
-        M4[Reliability: Medium/High/Highest/Low]
-        M5[Cost: High/Low/Free/High]
-    end
-    
-    A -.->|Many| M1
-    B -.->|1-2| M1
-    C -.->|0| M1
-    D -.->|Many| M1
-    
-    style A fill:#2ecc71,color:#fff
-    style B fill:#3498db,color:#fff
-    style C fill:#f39c12,color:#fff
-    style D fill:#9b59b6,color:#fff
-```
+| Feature | Dynamic NL | Static NL |
+|---------|------------|-----------|
+| **API Calls** | High (1 per step) | Low (1-2 total) |
+| **Execution Speed** | Medium | Fast |
+| **Adaptability** | High ✅ | Low |
+| **Reliability** | Medium | High |
+| **Cost** | High | Low |
+| **Use Case** | Complex, dynamic UIs | Stable, predictable flows |
+| **Debugging** | Real-time logs | Generated plan + execution |
+| **Best For** | Exploratory, multi-page | Regression, CI/CD |
 
 ---
 
 ## Testing Strategy
 
-### Test Execution Decision Tree
+### Execution Mode Selection
 
 ```mermaid
 graph TD
-    START{Test Type} --> SIMPLE{Simple & Stable?}
-    SIMPLE -->|Yes| USE_YAML[Use Function Tools<br/>YAML Scenario]
-    SIMPLE -->|No| DYNAMIC_UI{Dynamic UI?}
+    START{What's your goal?} --> EXPLORE{Exploratory testing?}
+    EXPLORE -->|Yes| USE_DYNAMIC[Use Dynamic NL<br/>--dynamic]
+    EXPLORE -->|No| MULTI_PAGE{Multiple pages<br/>or complex flow?}
     
-    DYNAMIC_UI -->|Yes| MULTI_PAGE{Multiple Pages?}
-    MULTI_PAGE -->|Yes| USE_DYNAMIC[Use Dynamic NL<br/>Step-by-step]
-    MULTI_PAGE -->|No| COMPLEX{Complex Logic?}
+    MULTI_PAGE -->|Yes| COST{Budget for API calls?}
+    COST -->|Yes| USE_DYNAMIC
+    COST -->|No| USE_STATIC[Use Static NL<br/>--nl-file]
     
-    COMPLEX -->|Yes| USE_DYNAMIC
-    COMPLEX -->|No| USE_STATIC[Use Static NL<br/>Generate Once]
+    MULTI_PAGE -->|No| USE_STATIC
     
-    DYNAMIC_UI -->|No| USE_STATIC
-    
-    style USE_YAML fill:#f39c12,color:#fff
     style USE_STATIC fill:#3498db,color:#fff
     style USE_DYNAMIC fill:#2ecc71,color:#fff
+```
 ```
 
 ---
@@ -500,25 +467,18 @@ graph LR
     subgraph "Dynamic NL Agent"
         D1[13 steps] --> D2[13 API calls]
         D2 --> D3[~30 seconds]
-        D3 --> D4[Cost: $$]
-    end
-    
-    subgraph "Static NL Agent"
-        S1[Same test] --> S2[1-2 API calls]
-        S2 --> S3[~5 seconds]
-        S3 --> S4[Cost: $]
-    end
-    
-    subgraph "Function Tools"
-        F1[Same test] --> F2[0 API calls]
-        F2 --> F3[~3 seconds]
-        F3 --> F4[Cost: Free]
-    end
-    
-    style D4 fill:#e74c3c,color:#fff
-    style S4 fill:#f39c12,color:#fff
-    style F4 fill:#2ecc71,color:#fff
-```
+## Performance Characteristics
+
+### Execution Time & Cost Comparison
+
+| Metric | Dynamic NL | Static NL |
+|--------|-----------|-----------|
+| **API Calls** | 5-15 calls | 1-2 calls |
+| **Execution Time** | 10-30 seconds | 5-10 seconds |
+| **Relative Cost** | High ($$) | Low ($) |
+| **Best For** | Complex flows | Simple flows |
+
+*Example: Login test (5 steps)*
 
 ---
 
@@ -527,31 +487,27 @@ graph LR
 ```mermaid
 mindmap
   root((UI Test Agent))
-    Batch Actions
-      Combine similar steps
-      Reduce API calls 50%
-      Form filling optimization
-    Smart Context
-      Modal-aware DOM extraction
-      Scope filtering
-      Memory optimization
+    Smart Features
+      Batch similar actions
+      Modal-aware extraction
+      Form auto-fill patterns
     Error Recovery
       Checkpoint system
       Resume from failure
-      Adaptive retry
+      Adaptive retry logic
     Parallel Execution
       Multi-tab support
       Concurrent tests
       Resource pooling
     Enhanced Assertions
       Element count checks
-      CSS property validation
-      URL pattern matching
-      Network request spying
-    Visual Testing
-      Screenshot comparison
+      CSS validation
+      Network spying
       Visual regression
-      Layout validation
+    Multi-Browser
+      Firefox support
+      WebKit support
+      Mobile browsers
 ```
 
 ---
@@ -562,7 +518,6 @@ mindmap
 graph TB
     subgraph "AI Layer"
         GEMINI[Google Gemini 2.5-flash]
-        ADK[Google ADK]
     end
     
     subgraph "Automation Layer"
@@ -637,29 +592,28 @@ graph TB
 
 ## Key Design Decisions
 
-### 1. Why Multiple Modes?
-- **Function Tools**: Best for stable, deterministic tests
-- **Static NL**: Fast AI-powered test generation
-- **Dynamic NL**: Maximum adaptability for complex UIs
-- **Computer Use**: Vision-based fallback
+### 1. Why Two Execution Modes?
+- **Static NL**: Fast, cost-effective for stable flows
+- **Dynamic NL**: Adaptive for complex, dynamic UIs
+- Gives flexibility without overwhelming complexity
 
 ### 2. Why DOM Indexer?
-- Faster than HTML parsing
-- Priority-sorted selectors
-- Free (no API calls)
-- Deterministic results
+- Faster than full HTML parsing
+- Priority-sorted selectors (testid > role > id)
+- No API calls needed
+- Deterministic, reproducible results
 
 ### 3. Why Context Builder?
-- Reduces AI hallucination
-- Intent-aware examples
-- Best practices included
-- Better than raw HTML
+- Reduces AI hallucination with structured prompts
+- Provides intent-aware examples
+- Includes best practices and rules
+- Better accuracy than raw HTML
 
 ### 4. Why Gemini 2.5-flash?
-- 15 RPM quota (vs 10 for 2.0-exp)
-- Stable release
-- Good cost/performance balance
-- Function calling support
+- Good RPM quota (free tier)
+- Fast response times
+- Cost-effective
+- Reliable for UI automation tasks
 
 ---
 

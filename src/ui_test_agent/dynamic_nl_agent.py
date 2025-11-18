@@ -44,7 +44,6 @@ class ActionStep:
     value: Optional[str] = None
     text: Optional[str] = None
     reasoning: Optional[str] = None
-    reasoning: Optional[str] = None
 
 
 class DynamicNLAgent:

@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from .config import Settings
 from .dom_indexer import DOMSemanticIndexer
 from .context_builder import ContextBuilder
-from .dsl import Scenario, ScenarioError, deep_merge
 
 # Suppress all Google ADK/Genai warnings about non-text parts
 warnings.filterwarnings("ignore", category=UserWarning, module="google")
@@ -32,6 +31,35 @@ except ImportError:  # pragma: no cover
     Agent = None  # type: ignore
     InMemoryRunner = None  # type: ignore
     types = None  # type: ignore
+
+
+# ===== Scenario Dataclass (previously in dsl.py) =====
+
+@dataclass
+class Scenario:
+    """Test scenario with metadata, environment variables, and action flow."""
+    meta: Dict[str, Any]
+    env: Dict[str, Any]
+    flow: List[Dict[str, Any]]
+
+
+class ScenarioError(RuntimeError):
+    """Raised when scenario generation or validation fails."""
+
+
+def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge two dictionaries, with override taking precedence."""
+    result = dict(base)
+    for key, value in override.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 @dataclass
