@@ -117,6 +117,8 @@ flow:
 
 ## 🏗️ Architecture
 
+📚 **[See detailed architecture documentation with diagrams →](ARCHITECTURE.md)**
+
 ### Core Components
 
 ```
