@@ -12,6 +12,8 @@ import os
 
 from .config import Settings
 from .dom_explorer import capture_dom_outline
+from .dom_indexer import DOMSemanticIndexer
+from .context_builder import ContextBuilder
 from .dsl import Scenario, ScenarioError, deep_merge
 
 # Suppress Google ADK SDK warnings about non-text parts
@@ -51,11 +53,12 @@ class GeneratedScenario:
 
 
 class NaturalLanguageOrchestrator:
-    """Turns natural language prompts into executable scenarios."""
+    """Turns natural language prompts into executable scenarios using hybrid approach."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
         self._adk_available = Agent is not None and InMemoryRunner is not None and types is not None
+        self.context_builder = ContextBuilder()  # NEW: Stage 2 context builder
         # DOM cache: url -> (snapshot, timestamp)
         self._dom_cache: Dict[str, Tuple[str, float]] = {}
         self._dom_cache_ttl: int = 300  # 5 minutes TTL
@@ -112,114 +115,42 @@ class NaturalLanguageOrchestrator:
 
         model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-        dom_agent = Agent(
-            name="dom_inspector",
-            description="Extracts selectors and textual cues from DOM outline",
-            instruction=(
-                "Given a DOM outline JSON, analyze it and respond with a JSON object containing:\n"
-                "{\"selectors\": {\"username\": \"#...\", \"password\": \"#...\", \"submit\": \"#...\"}, "
-                "\"messages\": {\"success\": \"...text...\"}}\n\n"
-                "IMPORTANT: Prefer data-testid attributes first, then id, then name attributes.\n"
-                "DO NOT return scenario steps - only return selector mappings and text hints."
-            ),
-            model=model_name,
-        )
-
-        intent_agent = Agent(
-            name="intent_mapper",
-            description="Extracts structured goals and data requirements",
-            instruction=(
-                "Read the natural language instructions and reply with JSON only.\n"
-                "Schema: {\"goals\": [...], \"inputs\": {...}, \"assertions\": [...]}.\n"
-                "\"inputs\" should cover field names, example selectors, and values "
-                "(resolve from instructions when possible, leave blanks otherwise). "
-                "Include any localized success/error phrases observed in DOM context so later agents can assert them semantically.\n\n"
-                "DO NOT return scenario steps - only return intent analysis."
-            ),
-            model=model_name,
-        )
-        planner_agent = Agent(
-            name="dom_planner",
-            description="Designs deterministic step-by-step tool calls",
-            instruction=(
-                "You are a test automation expert. Create a Playwright test scenario from the user's instructions.\n\n"
-                
-                "CRITICAL: HTML snippets of page elements are provided. Extract selectors from these HTML snippets!\n\n"
-                
-                "HOW TO USE HTML SNIPPETS:\n"
-                "1. HTML snippets show actual page elements (inputs, buttons, links)\n"
-                "2. Look for the element you need (e.g., search input, submit button)\n"
-                "3. Extract the ACTUAL id, data-testid, name, or text from the HTML\n"
-                "4. Examples:\n"
-                "   - <input id=\"search-input\" placeholder=\"Search...\"> → Use #search-input\n"
-                "   - <button data-testid=\"submit-btn\">Submit</button> → Use [data-testid=\"submit-btn\"] or text=Submit\n"
-                "   - <button id=\"cart-btn\">Cart (1)</button> → Use #cart-btn or text=Cart (1)\n\n"
-                
-                "IMPORTANT RULES:\n"
-                "1. Keep scenarios SIMPLE - maximum 8-10 steps\n"
-                "2. Follow user instructions EXACTLY - don't add extra verification steps\n"
-                "3. ALWAYS check HTML snippets first before choosing selectors\n"
-                "4. Use #id when available (most reliable)\n"
-                "5. Use text= for buttons with exact text from HTML\n\n"
-                
-                "OUTPUT FORMAT (EXACT JSON):\n"
-                "{\n"
-                "  \"meta\": {\n"
-                "    \"name\": \"Short descriptive name\",\n"
-                "    \"description\": \"What this test does\"\n"
-                "  },\n"
-                "  \"env\": {\n"
-                "    \"baseUrl\": \"http://localhost:8000\"\n"
-                "  },\n"
-                "  \"flow\": [\n"
-                "    {\"action\": \"go\", \"url\": \"/page.html\"},\n"
-                "    {\"action\": \"type\", \"selector\": \"#input-id\", \"value\": \"text\"},\n"
-                "    {\"action\": \"click\", \"selector\": \"text=Button Text\"},\n"
-                "    {\"action\": \"see\", \"text\": \"Expected text\", \"meaning\": \"Verification\"}\n"
-                "  ]\n"
-                "}\n\n"
-                
-                "AVAILABLE ACTIONS:\n"
-                "- go: Navigate to URL\n"
-                "- type: Enter text into input (requires 'selector' and 'value')\n"
-                "- click: Click element (requires 'selector')\n"
-                "- see: Verify text appears (requires 'text' and optional 'meaning')\n"
-                "- seeUrl: Verify URL contains text\n"
-                "- waitApi: Wait for API call\n\n"
-                
-                "SELECTOR PRIORITY:\n"
-                "1. #id (BEST - use if available in HTML)\n"
-                "2. [data-testid] (GOOD - use if id not available)\n"
-                "3. text= (GOOD for buttons/links with stable text)\n"
-                "4. [name] (OK - for forms)\n"
-                "5. [placeholder] (AVOID - use id instead)\n\n"
-                
-                "CRITICAL: Return ONLY the JSON object. No markdown, no explanations, no code fences."
-            ),
-            model=model_name,
-        )
-        reviewer_agent = Agent(
-            name="guardrail_reviewer",
-            description="Audits final scenario for safety and completeness",
-            instruction=(
-                "Review the scenario JSON from dom_planner.\n"
-                "Verify:\n"
-                "1) JSON has required keys: meta, env, flow\n"
-                "2) flow is a non-empty array of action objects\n"
-                "3) Selectors are valid and specific\n"
-                "4) All URLs stay on allowed hosts\n"
-                "5) Assertions cover the stated goals\n\n"
-                "If issues found, fix them and output the COMPLETE corrected JSON.\n"
-                "If everything is valid, output the JSON as-is.\n"
-                "RESPOND ONLY WITH THE COMPLETE JSON OBJECT - NO EXPLANATIONS."
-            ),
-            model=model_name,
-        )
-        # Simplified single-agent approach (multi-agent orchestration doesn't work reliably)
+        # HYBRID APPROACH: Single agent with rich context from ContextBuilder
+        # No multi-agent orchestration - simpler, faster, more reliable
+        
         single_agent = Agent(
             name="scenario_builder",
-            description="Builds complete test scenarios from natural language",
-            instruction=planner_agent.instruction,  # Use the detailed planner instruction directly
+            description="Builds complete test scenarios from natural language with rich context",
+            instruction="""
+You are an expert test scenario builder. You receive structured context including:
+  1. User's intent analysis (detected patterns)
+  2. Available page elements with priority-sorted selectors
+  3. Few-shot examples matching the use case
+  4. Best practices and rules
+
+Your task: Generate a JSON test scenario using the PROVIDED selectors.
+
+CRITICAL RULES:
+- Use EXACT selectors from "Available Page Elements" section
+- DON'T guess or invent selectors not in the list
+- Prefer #id > [data-testid] > text= > [name]
+- Keep scenarios under 10 steps (simpler is better)
+- Return ONLY valid JSON (no markdown, no explanations, no code fences)
+
+OUTPUT FORMAT:
+{
+  "meta": {"name": "...", "description": "..."},
+  "env": {"baseUrl": "..."},
+  "flow": [
+    {"action": "go", "url": "/page.html"},
+    {"action": "type", "selector": "#input-id", "value": "text"},
+    {"action": "click", "selector": "text=Button"},
+    {"action": "see", "text": "Success", "meaning": "Verification"}
+  ]
+}
+
+Remember: Use selectors from the provided list, don't invent new ones!
+""",
             model=model_name,
         )
 
@@ -234,7 +165,26 @@ class NaturalLanguageOrchestrator:
         
         session = _run_sync(_create_session())
 
-        instructions = self._build_prompt(prompt, base_env, dom_context, feedback)
+        # HYBRID: Use ContextBuilder to create rich, structured context
+        # If dom_context provided, try to parse it into ElementInfo list
+        dom_index = []
+        if dom_context:
+            # dom_context is HTML snippets string from dom_explorer
+            # For now, pass it as-is. TODO: Parse into ElementInfo if needed
+            pass
+        
+        # Build rich context with intent analysis + examples + best practices
+        instructions = self.context_builder.build_context(
+            user_instructions=prompt,
+            dom_index=dom_index,  # Empty for now, will be populated when we integrate dom_indexer
+            base_env=base_env,
+            feedback=feedback
+        )
+        
+        # If we have raw HTML context, append it as backup
+        if dom_context:
+            instructions += f"\n\n---\n\n# Raw HTML Elements (Backup)\n\n{dom_context[:8000]}"
+        
         message = types.Content(role="user", parts=[types.Part(text=instructions)])
         transcript: List[TranscriptEntry] = []
 
@@ -302,27 +252,6 @@ class NaturalLanguageOrchestrator:
         plan_dict = _safe_json_loads(raw_response)
         scenario = _scenario_from_dict(plan_dict, base_env)
         return GeneratedScenario(scenario=scenario, raw_plan=plan_dict, transcript=transcript)
-
-    def _build_prompt(
-        self,
-        prompt: str,
-        base_env: Dict[str, Any],
-        dom_context: Optional[str],
-        feedback: Optional[str],
-    ) -> str:
-        env_hint = json.dumps(base_env, ensure_ascii=False)
-        sections = [
-            "You are designing a deterministic Playwright scenario.",
-            f"Base environment: {env_hint}",
-            f"Instructions:\n{prompt}",
-        ]
-        if dom_context:
-            # Increase limit to 12000 chars to capture more complex pages like e-commerce
-            sections.append("HTML snippets of interactive elements:\n" + dom_context[:12000])
-        if feedback:
-            sections.append("Previous attempt feedback:\n" + feedback)
-        sections.append("Return only JSON with meta/env/flow.")
-        return "\n\n".join(sections)
 
     # --- Heuristic fallback ---------------------------------------------------
 
